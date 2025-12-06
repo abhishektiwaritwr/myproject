@@ -3,8 +3,8 @@ pipeline {
 
     environment {
         IMAGE = "abhi817/myproject"
-        DOCKER_CREDS = "docker-hub-cred"
-        KUBE_CONFIG = "kubeconfig-cred"
+        DOCKER_CREDS = "dockerhub-cred"   // corrected: matches Jenkins credentials
+        KUBE_CONFIG = "minikube-config"   // corrected: matches Jenkins credentials
     }
 
     stages {
