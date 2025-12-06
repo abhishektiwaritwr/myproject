@@ -1,0 +1,63 @@
+pipeline {
+    agent any
+
+    environment {
+        IMAGE = "abhi817/myproject"
+        DOCKER_CREDS = "docker-hub-cred"
+        KUBE_CONFIG = "kubeconfig-cred"
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh "docker build -t ${IMAGE}:${BUILD_NUMBER} ."
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: DOCKER_CREDS,
+                    usernameVariable: 'USER',
+                    passwordVariable: 'PASS'
+                )]) {
+                    sh '''
+                        echo "$PASS" | docker login -u "$USER" --password-stdin
+                        docker push ${IMAGE}:${BUILD_NUMBER}
+                        docker tag ${IMAGE}:${BUILD_NUMBER} ${IMAGE}:latest
+                        docker push ${IMAGE}:latest
+                        docker logout
+                    '''
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                withCredentials([file(credentialsId: KUBE_CONFIG, variable: 'KUBECONFIG_FILE')]) {
+                    sh '''
+                        export KUBECONFIG=$KUBECONFIG_FILE
+                        kubectl set image deployment/myproject myproject=${IMAGE}:${BUILD_NUMBER}
+                        kubectl rollout status deployment/myproject
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Deployment successful: ${IMAGE}:${BUILD_NUMBER}"
+        }
+        failure {
+            echo "Deployment failed!"
+        }
+    }
+}
